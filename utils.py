@@ -10,8 +10,6 @@ import pandas as pd
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-
-# -------------------- Data helpers --------------------
 def load_temperature_csv(uploaded_file) -> pd.DataFrame:
     df = pd.read_csv(uploaded_file)
     df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
@@ -68,8 +66,6 @@ def yearly_profile(df_city: pd.DataFrame) -> pd.DataFrame:
     d["year"] = d["timestamp"].dt.year
     return d.groupby("year")["temperature"].mean().reset_index(name="temp_mean")
 
-
-# -------------------- OpenWeatherMap (sync/async) --------------------
 def fetch_current_weather_sync(city: str, api_key: str, timeout: int = 15) -> dict:
     url = "https://api.openweathermap.org/data/2.5/weather"
     params = {"q": city, "appid": api_key, "units": "metric"}
@@ -104,18 +100,15 @@ async def fetch_many_cities_async(cities: List[str], api_key: str, timeout: int 
         return results
 
 
-# -------------------- Historical analysis benchmark (seq vs parallel) --------------------
 def analyze_city_block(city: str, df_city: pd.DataFrame, window: int = 30) -> dict:
     d = df_city.sort_values("timestamp").copy()
 
-    # rolling anomalies
     d["roll_mean"] = d["temperature"].rolling(window=window, min_periods=window).mean()
     d["roll_std"] = d["temperature"].rolling(window=window, min_periods=window).std()
     upper = d["roll_mean"] + 2 * d["roll_std"]
     lower = d["roll_mean"] - 2 * d["roll_std"]
     roll_anoms = (d["roll_mean"].notna() & ((d["temperature"] > upper) | (d["temperature"] < lower))).sum()
 
-    # seasonal anomalies
     stats = d.groupby("season")["temperature"].agg(["mean", "std"])
     d = d.join(stats, on="season", rsuffix="_season")
     season_upper = d["mean"] + 2 * d["std"]
@@ -135,20 +128,17 @@ def analyze_city_block(city: str, df_city: pd.DataFrame, window: int = 30) -> di
 def benchmark_historical(df: pd.DataFrame, cities: List[str], window: int, workers: int) -> dict:
     import time
 
-    # prepare groups once
     city_groups = {
         c: df[df["city"] == c][["city", "timestamp", "temperature", "season"]].copy()
         for c in cities
     }
 
-    # sequential
     t0 = time.perf_counter()
     seq_results = []
     for c, dcity in city_groups.items():
         seq_results.append(analyze_city_block(c, dcity, window=window))
     t_seq = time.perf_counter() - t0
 
-    # parallel (threads)
     t1 = time.perf_counter()
     par_results = []
     with ThreadPoolExecutor(max_workers=workers) as ex:
