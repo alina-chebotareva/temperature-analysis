@@ -11,13 +11,12 @@ from utils import (
     season_stats_for_city,
     add_season_bounds,
     fetch_current_weather_sync,
-    fetch_current_weather_async,  # должна существовать в utils
+    fetch_current_weather_async,  
 )
 
 st.set_page_config(page_title="Эксперименты", layout="wide")
 st.title("Эксперименты")
 
-# ---------------- Sidebar ----------------
 st.sidebar.header("Данные")
 uploaded = st.sidebar.file_uploader("temperature_data.csv", type=["csv"])
 if uploaded is None:
@@ -31,7 +30,6 @@ st.sidebar.header("Ключ доступа")
 api_key = st.sidebar.text_input("API key", type="password")
 
 
-# ---------------- Helpers ----------------
 def _extract_temp_from_owm_response(data: dict) -> float:
     if str(data.get("cod")) != "200":
         raise ValueError("API error")
@@ -68,7 +66,6 @@ def analyze_city(city_name: str, df_all: pd.DataFrame, window: int) -> dict:
     }
 
 
-# ---------------- Layout ----------------
 tab_api, tab_parallel = st.tabs(["Sync vs Async", "Sequential vs Parallel"])
 
 with tab_api:
@@ -89,7 +86,7 @@ with tab_api:
             st.warning("Выбери хотя бы один город.")
             st.stop()
 
-        # --- sync benchmark ---
+
         t0 = time.perf_counter()
         sync_rows = []
         for c in sel:
@@ -101,7 +98,6 @@ with tab_api:
                 sync_rows.append({"city": c, "temp": None})
         t_sync = time.perf_counter() - t0
 
-        # --- async benchmark ---
         t1 = time.perf_counter()
         async_df = asyncio.run(_async_many(sel, api_key))
         t_async = time.perf_counter() - t1
@@ -128,12 +124,10 @@ with tab_parallel:
         run_hist = st.button("Запустить", use_container_width=True, key="run_hist")
 
     if run_hist:
-        # --- sequential ---
         t0 = time.perf_counter()
         seq_rows = [analyze_city(c, df, window) for c in cities]
         t_seq = time.perf_counter() - t0
 
-        # --- parallel ---
         t1 = time.perf_counter()
         with ThreadPoolExecutor(max_workers=workers) as ex:
             par_rows = list(ex.map(lambda c: analyze_city(c, df, window), cities))
