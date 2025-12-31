@@ -17,7 +17,6 @@ from utils import (
 st.set_page_config(page_title="Анализ", layout="wide")
 st.title("Анализ температур по городу")
 
-# ---------------- Sidebar: inputs ----------------
 st.sidebar.header("Данные")
 uploaded = st.sidebar.file_uploader("temperature_data.csv", type=["csv"])
 
@@ -39,18 +38,15 @@ window = st.sidebar.slider("Окно сглаживания, дней", 7, 60, 3
 st.sidebar.header("Ключ доступа")
 api_key = st.sidebar.text_input("API key", type="password")
 
-# ---------------- Prepare data ----------------
 city_df = city_slice(df, city)
 city_df = add_rolling(city_df, window=window)
 
 season_stats = season_stats_for_city(city_df)
 city_df = add_season_bounds(city_df, season_stats)
 
-# ---------------- Tabs (ничего "закреплённого" до вкладок) ----------------
 tab1, tab2, tab3 = st.tabs(["Временной ряд", "Сезоны", "Текущая температура"])
 
 with tab1:
-    # метрики + описательная статистика — внутри вкладки "Временной ряд"
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Дней", f"{len(city_df):,}".replace(",", " "))
     m2.metric("Период", f"{city_df['timestamp'].min().date()} — {city_df['timestamp'].max().date()}")
